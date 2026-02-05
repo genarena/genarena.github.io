@@ -29,8 +29,8 @@
   <style>
     .tooltip-trigger {
       position: absolute;
-      top: -8px;
-      right: -10px;
+      bottom: -5px;
+      right: -5px;
       width: 14px;
       height: 14px;
       background: #fff;
@@ -49,7 +49,7 @@
       visibility: hidden;
       opacity: 0;
       position: absolute;
-      bottom: 130%;
+      top: 130%;
       right: 0;
       width: 260px;
       background: #363636;
@@ -65,11 +65,11 @@
     .tooltip-content::after {
       content: '';
       position: absolute;
-      top: 100%;
+      bottom: 100%;
       right: 12px;
       border-width: 6px;
       border-style: solid;
-      border-color: #363636 transparent transparent transparent;
+      border-color: transparent transparent #363636 transparent;
     }
     .tooltip-trigger:hover .tooltip-content,
     .tooltip-trigger:focus .tooltip-content {
@@ -230,7 +230,7 @@
                 </a>
               </span>
               <!-- Diffgentor Link. -->
-              <span class="link-block" style="position: relative;">
+              <span class="link-block" style="position: relative; display: inline-block;">
                 <a href="https://github.com/ruihanglix/diffgentor"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
