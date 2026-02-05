@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="GenArena: A unified evaluation framework that leverages pairwise comparison paradigm to ensure stable and human-aligned evaluation for visual generation tasks.">
+  <meta name="keywords" content="GenArena, Visual Generation, VLM-as-a-Judge, Pairwise Evaluation, Elo Rating, Image Editing, Image Composition">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GenArena: Human-Aligned Evaluation for Visual Generation</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.ico">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <style>
+    .tooltip-trigger {
+      position: absolute;
+      top: -8px;
+      right: -10px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .tooltip-trigger i {
+      font-size: 10px;
+      color: #3273dc;
+    }
+    .tooltip-content {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      bottom: 130%;
+      right: 0;
+      width: 260px;
+      background: #363636;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      z-index: 100;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .tooltip-content::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      right: 12px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: #363636 transparent transparent transparent;
+    }
+    .tooltip-trigger:hover .tooltip-content,
+    .tooltip-trigger:focus .tooltip-content {
+      visibility: visible;
+      opacity: 1;
+    }
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .leaderboard-table th {
+      background-color: #363636;
+      color: white;
+      padding: 12px 8px;
+      text-align: center;
+    }
+    .leaderboard-table td {
+      padding: 10px 8px;
+      text-align: center;
+      border-bottom: 1px solid #dbdbdb;
+    }
+    .leaderboard-table tr:nth-child(even) {
+      background-color: #f5f5f5;
+    }
+    .leaderboard-table tr:hover {
+      background-color: #e8e8e8;
+    }
+    .rank-1 { color: #FFD700; font-weight: bold; }
+    .rank-2 { color: #C0C0C0; font-weight: bold; }
+    .rank-3 { color: #CD7F32; font-weight: bold; }
+    .method-step {
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .method-step .step-number {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #3273dc;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+    }
+    .method-step h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .arrow-right {
+      font-size: 2rem;
+      color: #3273dc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .button.gradient-btn {
+      background: linear-gradient(135deg, #4a5568 0%, #553c7d 50%, #9b4d96 100%);
+      border: none;
+      color: white;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .button.gradient-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title"><span class="gradient-text">GenArena</span>: How Can We Achieve Human-Aligned Evaluation for Visual Generation Tasks?</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Ruihang Li<sup>1,2,3</sup>,</span>
+            <span class="author-block">
+              <a href="https://leigang-qu.github.io/">Leigang Qu</a><sup>4</sup>,</span>
+            <span class="author-block">
+              Jingxu Zhang<sup>1</sup>,</span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=shLKvwcAAAAJ">Dongnan Gui</a><sup>1</sup>,</span>
+            <br>
+            <span class="author-block">
+              <a href="https://mendelxu.github.io/">Mengde Xu</a><sup>3</sup>,</span>
+            <span class="author-block">
+              <a href="https://zhangxiaosong18.github.io/">Xiaosong Zhang</a><sup>3</sup>,</span>
+            <span class="author-block">
+              <a href="https://ancientmooner.github.io/">Han Hu</a><sup>3</sup>,</span>
+            <span class="author-block">
+              <a href="https://wenjiewwj.github.io/">Wenjie Wang</a><sup>1†</sup>,</span>
+            <span class="author-block">
+              <a href="https://myownskyw7.github.io/">Jiaqi Wang</a><sup>2†</sup>
+            </span>
+          </div>
+
+          <div class="is-size-5 publication-authors" style="margin-top: 1em;">
+            <span class="author-block" style="display: block;"><sup>1</sup>University of Science and Technology of China</span>
+            <span class="author-block" style="display: block;"><sup>2</sup>Shanghai Innovation Institute&nbsp;&nbsp;&nbsp;&nbsp;<sup>3</sup>Tencent</span>
+            <span class="author-block" style="display: block;"><sup>4</sup>National University of Singapore</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- arXiv Link. -->
+              <span class="link-block">
+                <a href="#"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <img src="./static/images/arxiv-logomark-small.svg" alt="arXiv" style="width: 20px; height: 20px;">
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ruihanglix/genarena"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <!-- HuggingFace Link. -->
+              <span class="link-block">
+                <a href="https://huggingface.co/datasets/rhli/genarena"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      🤗
+                  </span>
+                  <span>HuggingFace</span>
+                </a>
+              </span>
+              <!-- Leaderboard Link. -->
+              <span class="link-block">
+                <a href="https://huggingface.co/spaces/genarena/leaderboard"
+                   class="external-link button is-normal is-rounded gradient-btn">
+                  <span class="icon">
+                      <i class="fas fa-trophy"></i>
+                  </span>
+                  <span>Leaderboard</span>
+                </a>
+              </span>
+              <!-- Diffgentor Link. -->
+              <span class="link-block" style="position: relative;">
+                <a href="https://github.com/ruihanglix/diffgentor"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-robot"></i>
+                  </span>
+                  <span>Diffgentor</span>
+                </a>
+                <span class="tooltip-trigger" tabindex="0">
+                  <i class="fas fa-question-circle"></i>
+                  <span class="tooltip-content">Diffgentor is an efficient pipeline for batch image generation using various image editing models (e.g., for GenArena evaluation).</span>
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <img src="./static/images/fig1.png" alt="GenArena Framework" style="width: 100%;">
+      <h2 class="subtitle has-text-centered" style="margin-top: 1rem;">
+        <span class="dnerf">GenArena</span> leverages pairwise comparison to achieve stable and human-aligned evaluation for visual generation tasks.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            The rapid advancement of visual generation models has outpaced traditional evaluation approaches, necessitating the adoption of Vision-Language Models as surrogate judges. In this work, we systematically investigate the reliability of the prevailing absolute pointwise scoring standard, across a wide spectrum of visual generation tasks.
+          </p>
+          <p>
+            Our analysis reveals that this paradigm is limited due to <strong>stochastic inconsistency</strong> and <strong>poor alignment with human perception</strong>. To resolve these limitations, we introduce <strong>GenArena</strong>, a unified evaluation framework that leverages a <em>pairwise comparison</em> paradigm to ensure stable and human-aligned evaluation.
+          </p>
+          <p>
+            Crucially, our experiments uncover a transformative finding that simply adopting this pairwise protocol enables off-the-shelf open-source models to outperform top-tier proprietary models. Notably, our method boosts evaluation accuracy by over <strong>20%</strong> and achieves a Spearman correlation of <strong>0.86</strong> with the authoritative LMArena leaderboard, drastically surpassing the 0.36 correlation of pointwise methods.
+          </p>
+          <p>
+            Based on GenArena, we benchmark state-of-the-art visual generation models across diverse tasks, providing the community with a rigorous and automated evaluation standard for visual generation.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+
+<!-- Leaderboard Section -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">GenArena Leaderboard</h2>
+    <p class="has-text-centered" style="margin-bottom: 0.5rem;">
+      Elo-based rankings of state-of-the-art models across Basic, Reasoning, and Multi-Reference editing tasks.
+    </p>
+    <p class="has-text-centered has-text-grey" style="margin-bottom: 2rem; font-size: 0.9rem;">
+      <em>Snapshot from January 2026.</em> For the latest rankings, visit the <a href="https://huggingface.co/spaces/GenArena/Leaderboard" target="_blank">live leaderboard</a>.
+    </p>
+    <div class="table-container">
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th rowspan="2">Models</th>
+            <th colspan="2">Basic</th>
+            <th colspan="2">Reasoning</th>
+            <th colspan="2">MultiRef</th>
+          </tr>
+          <tr>
+            <th>Elo</th>
+            <th>Rank</th>
+            <th>Elo</th>
+            <th>Rank</th>
+            <th>Elo</th>
+            <th>Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>GPT Image 1.5 [High]</strong></td>
+            <td>1162</td>
+            <td class="rank-1">#1</td>
+            <td>1204</td>
+            <td class="rank-1">#1</td>
+            <td>1259</td>
+            <td class="rank-1">#1</td>
+          </tr>
+          <tr>
+            <td>Qwen-Image-Edit-2511</td>
+            <td>1065</td>
+            <td class="rank-2">#2</td>
+            <td>1005</td>
+            <td>#4</td>
+            <td>793</td>
+            <td>#7</td>
+          </tr>
+          <tr>
+            <td>Nano Banana</td>
+            <td>1056</td>
+            <td class="rank-3">#3</td>
+            <td>1130</td>
+            <td class="rank-2">#2</td>
+            <td>1048</td>
+            <td class="rank-3">#3</td>
+          </tr>
+          <tr>
+            <td>Flux.2 [klein] 9B</td>
+            <td>1046</td>
+            <td>#4</td>
+            <td>962</td>
+            <td>#6</td>
+            <td>1018</td>
+            <td>#4</td>
+          </tr>
+          <tr>
+            <td>LongCat-Image-Edit</td>
+            <td>1037</td>
+            <td>#5</td>
+            <td>944</td>
+            <td>#8</td>
+            <td>--</td>
+            <td>--</td>
+          </tr>
+          <tr>
+            <td>Qwen-Image-Edit-2509</td>
+            <td>1020</td>
+            <td>#6</td>
+            <td>962</td>
+            <td>#7</td>
+            <td>705</td>
+            <td>#10</td>
+          </tr>
+          <tr>
+            <td>GPT Image 1 [High]</td>
+            <td>1004</td>
+            <td>#7</td>
+            <td>1095</td>
+            <td class="rank-3">#3</td>
+            <td>1066</td>
+            <td class="rank-2">#2</td>
+          </tr>
+          <tr>
+            <td>Flux.2 [dev]</td>
+            <td>997</td>
+            <td>#8</td>
+            <td>968</td>
+            <td>#5</td>
+            <td>948</td>
+            <td>#6</td>
+          </tr>
+          <tr>
+            <td>Flux.2 [klein] 4B</td>
+            <td>987</td>
+            <td>#9</td>
+            <td>928</td>
+            <td>#9</td>
+            <td>967</td>
+            <td>#5</td>
+          </tr>
+          <tr>
+            <td>Qwen-Image-Edit</td>
+            <td>979</td>
+            <td>#10</td>
+            <td>920</td>
+            <td>#10</td>
+            <td>--</td>
+            <td>--</td>
+          </tr>
+          <tr>
+            <td>Flux.1 Kontext [dev]</td>
+            <td>860</td>
+            <td>#11</td>
+            <td>849</td>
+            <td>#12</td>
+            <td>713</td>
+            <td>#9</td>
+          </tr>
+          <tr>
+            <td>Bagel</td>
+            <td>773</td>
+            <td>#12</td>
+            <td>823</td>
+            <td>#13</td>
+            <td>649</td>
+            <td>#11</td>
+          </tr>
+          <tr>
+            <td>Step1X-Edit</td>
+            <td>739</td>
+            <td>#13</td>
+            <td>744</td>
+            <td>#14</td>
+            <td>--</td>
+            <td>--</td>
+          </tr>
+          <tr>
+            <td>DreamOmni2</td>
+            <td>718</td>
+            <td>#14</td>
+            <td>858</td>
+            <td>#11</td>
+            <td>777</td>
+            <td>#8</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="has-text-centered" style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+      Rankings established via pairwise battles judged by Qwen3-VL-32B Instruct FP8 and aggregated into Elo scores.
+    </p>
+  </div>
+</section>
+
+
+<!-- Method Overview Section -->
+<section class="section" style="background-color: #f5f5f5;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Method Overview</h2>
+    <p class="has-text-centered" style="margin-bottom: 2rem;">
+      GenArena orchestrates a scalable tournament among generative models through three stages.
+    </p>
+    <div class="columns is-centered is-vcentered">
+      <div class="column is-3">
+        <div class="method-step">
+          <div class="step-number">1</div>
+          <h4>Competitive Sampling</h4>
+          <p>Curate diverse instructions and sample outputs from candidate models as tournament competitors.</p>
+        </div>
+      </div>
+      <div class="column is-1">
+        <div class="arrow-right">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+      </div>
+      <div class="column is-3">
+        <div class="method-step">
+          <div class="step-number">2</div>
+          <h4>Pairwise Judging</h4>
+          <p>VLM judges evaluate model pairs with bi-directional consistency check and forced-choice mechanism.</p>
+        </div>
+      </div>
+      <div class="column is-1">
+        <div class="arrow-right">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+      </div>
+      <div class="column is-3">
+        <div class="method-step">
+          <div class="step-number">3</div>
+          <h4>Elo Aggregation</h4>
+          <p>Transform pairwise outcomes into continuous leaderboard using Bradley-Terry statistical model.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- Qualitative Results Section -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Qualitative Results</h2>
+
+    <div class="columns is-centered">
+      <div class="column">
+        <img src="./static/images/samples_of_models.png" alt="Image Editing Results" style="width: 100%;">
+      </div>
+    </div>
+
+    <div class="columns is-centered" style="margin-top: 2rem;">
+      <div class="column">
+        <h3 class="title is-4 has-text-centered">More Cases of Multi-Reference Image Generation</h3>
+        <img src="./static/images/samples_of_models_multiref.png" alt="More Cases of Multi-Reference Image Generation" style="width: 100%;">
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Quantitative Results Section -->
+<section class="section" style="background-color: #fafafa;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered" style="cursor: pointer;" onclick="toggleQuantitativeResults()">
+      Quantitative Results
+      <span id="quantitative-toggle-icon" style="font-size: 0.8em; margin-left: 0.5rem;">
+        <i class="fas fa-chevron-down"></i>
+      </span>
+    </h2>
+    <p class="has-text-centered" style="margin-bottom: 1.5rem; color: #666;">
+      Click to expand detailed experimental results
+    </p>
+
+    <div id="quantitative-results-content" style="display: none;">
+
+      <!-- Subsection 1: Pairwise scoring is more accurate -->
+      <div class="box" style="margin-bottom: 2rem;">
+        <h3 class="title is-4">Pairwise scoring is more accurate than its pointwise alternatives</h3>
+        <p class="has-text-justified" style="margin-bottom: 1.5rem;">
+          We quantitatively validate the superiority of the pairwise paradigm over traditional absolute pointwise scoring across a wide spectrum of visual generation tasks. Simply switching from a pointwise to a pairwise paradigm triggers an immediate and substantial accuracy boost for identical models without any parameter updates.
+        </p>
+        <div class="table-container">
+          <table class="leaderboard-table" style="font-size: 0.85rem;">
+            <thead>
+              <tr>
+                <th rowspan="2">Model</th>
+                <th>Image Generation</th>
+                <th colspan="2">Image Editing</th>
+                <th colspan="2">Video Generation</th>
+              </tr>
+              <tr>
+                <th>GenAI-Bench</th>
+                <th>GenAI-Bench</th>
+                <th>EditScore</th>
+                <th>GenAI-Bench</th>
+                <th>VideoGen-Reward</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background-color: #f0f0f0;">
+                <td colspan="6" style="text-align: left; font-weight: bold; font-style: italic;">Proprietary VLMs</td>
+              </tr>
+              <tr>
+                <td>GPT-4.1</td>
+                <td>--</td>
+                <td>--</td>
+                <td>70.5</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>GPT-5</td>
+                <td>--</td>
+                <td>--</td>
+                <td>75.5</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>Gemini-2.5 Pro</td>
+                <td>--</td>
+                <td>--</td>
+                <td>72.2</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <!-- Finetuned Models -->
+              <tr style="background-color: #f0f0f0;">
+                <td colspan="6" style="text-align: left; font-weight: bold; font-style: italic;">Finetuned Models</td>
+              </tr>
+              <tr>
+                <td>VisionReward</td>
+                <td><u>66.4</u></td>
+                <td>--</td>
+                <td>--</td>
+                <td>73.1</td>
+                <td>68.2</td>
+              </tr>
+              <tr>
+                <td>Qwen2.5-VL-7B</td>
+                <td>--</td>
+                <td>--</td>
+                <td>43.2</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>&nbsp;&nbsp;EditScore-7B</td>
+                <td>--</td>
+                <td>--</td>
+                <td>65.9</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>Qwen2.5-VL-72B</td>
+                <td>--</td>
+                <td>--</td>
+                <td>62.1</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>&nbsp;&nbsp;EditScore-72B</td>
+                <td>--</td>
+                <td>--</td>
+                <td>70.3</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>Qwen3-VL 8B Instruct</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>&nbsp;&nbsp;EditScore-Qwen3-8B</td>
+                <td>--</td>
+                <td>--</td>
+                <td>69.0</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>&nbsp;&nbsp;UnifiedReward-Qwen3-VL-8B</td>
+                <td>64.2</td>
+                <td>81.5</td>
+                <td>75.0</td>
+                <td>69.1</td>
+                <td><u>73.6</u></td>
+              </tr>
+              <tr style="background-color: #e8f4e8;">
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;+ Pairwise</td>
+                <td><strong>67.0</strong></td>
+                <td>82.5</td>
+                <td>73.3</td>
+                <td><strong>78.6</strong></td>
+                <td><strong>78.8</strong></td>
+              </tr>
+              <!-- Open Source VLMs -->
+              <tr style="background-color: #f0f0f0;">
+                <td colspan="6" style="text-align: left; font-weight: bold; font-style: italic;">Open Source VLMs</td>
+              </tr>
+              <tr>
+                <td>Qwen3-VL 8B Instruct</td>
+                <td>49.1</td>
+                <td>73.4</td>
+                <td>58.3</td>
+                <td>62.0</td>
+                <td>57.0</td>
+              </tr>
+              <tr style="background-color: #e8f4e8;">
+                <td>&nbsp;&nbsp;+ Pairwise</td>
+                <td>60.5</td>
+                <td><strong>83.9</strong></td>
+                <td><u>83.7</u></td>
+                <td>73.3</td>
+                <td>61.5</td>
+              </tr>
+              <tr>
+                <td>GLM 4.6V Flash (9B)</td>
+                <td>48.2</td>
+                <td>73.2</td>
+                <td>68.3</td>
+                <td>63.0</td>
+                <td>--</td>
+              </tr>
+              <tr style="background-color: #e8f4e8;">
+                <td>&nbsp;&nbsp;+ Pairwise</td>
+                <td>54.7</td>
+                <td>81.3</td>
+                <td><strong>87.2</strong></td>
+                <td><u>76.6</u></td>
+                <td>--</td>
+              </tr>
+              <tr>
+                <td>InternVL 3.5 8B</td>
+                <td>50.7</td>
+                <td>66.4</td>
+                <td>53.4</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+              <tr style="background-color: #e8f4e8;">
+                <td>&nbsp;&nbsp;+ Pairwise</td>
+                <td>61.9</td>
+                <td><u>83.1</u></td>
+                <td>75.0</td>
+                <td>--</td>
+                <td>--</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: #666; text-align: center;">
+          Pairwise scoring (rows with green background) enables off-the-shelf open-source VLMs to achieve state-of-the-art accuracy, surpassing proprietary systems like GPT-5. <strong>Bold</strong> indicates the best result, <u>underline</u> denotes the second best.
+        </p>
+      </div>
+
+      <!-- Subsection 2: Pairwise scoring is more consistent -->
+      <div class="box" style="margin-bottom: 2rem;">
+        <h3 class="title is-4">Pairwise scoring is more consistent than its pointwise alternatives</h3>
+        <p class="has-text-justified" style="margin-bottom: 1.5rem;">
+          Beyond alignment with human preference, a robust benchmark demands internal stability. We quantify self-consistency using Krippendorff's Alpha, treating independent inference runs with identical inputs as distinct raters. Higher values indicate better consistency.
+        </p>
+        <div class="columns is-centered">
+          <div class="column is-8">
+            <div class="table-container">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Benchmark</th>
+                    <th>Pointwise</th>
+                    <th>Pairwise</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="background-color: #f0f0f0;">
+                    <td colspan="3" style="text-align: left; font-style: italic;">Reward Model Benchmarks</td>
+                  </tr>
+                  <tr>
+                    <td>GenAI-Bench</td>
+                    <td>0.7256</td>
+                    <td><strong>0.8628</strong></td>
+                  </tr>
+                  <tr>
+                    <td>EditScore-Bench</td>
+                    <td>0.5753</td>
+                    <td><strong>0.7087</strong></td>
+                  </tr>
+                  <tr style="background-color: #f0f0f0;">
+                    <td colspan="3" style="text-align: left; font-style: italic;">Image Editing Benchmarks</td>
+                  </tr>
+                  <tr>
+                    <td>ImgEdit</td>
+                    <td>0.5707</td>
+                    <td><strong>0.7040</strong></td>
+                  </tr>
+                  <tr>
+                    <td>GEdit-Bench</td>
+                    <td>0.5169</td>
+                    <td><strong>0.6553</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: #666; text-align: center;">
+          Krippendorff's Alpha values calculated over 5 independent inference runs using Qwen3-VL 8B Instruct as the judge.
+        </p>
+      </div>
+
+      <!-- Subsection 3: Elo ranking aligns more with human preferences -->
+      <div class="box">
+        <h3 class="title is-4">Elo ranking aligns more with human preferences</h3>
+        <p class="has-text-justified" style="margin-bottom: 1.5rem;">
+          We compare the ranking alignment of absolute pointwise scores and our pairwise Elo ratings against human preference represented by LMArena. Our pairwise approach achieves significantly better correlation with human judgment.
+        </p>
+        <div class="table-container">
+          <table class="leaderboard-table" style="font-size: 0.85rem;">
+            <thead>
+              <tr>
+                <th rowspan="2">Models</th>
+                <th colspan="2">GEdit-EN (Pointwise)</th>
+                <th colspan="2">GEdit-EN (Elo)</th>
+                <th style="color: #888;">LMArena</th>
+              </tr>
+              <tr>
+                <th>Score</th>
+                <th>Rank</th>
+                <th>Score</th>
+                <th>Rank</th>
+                <th style="color: #888;">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Nano Banana</td>
+                <td>7.10</td>
+                <td>#4</td>
+                <td>1062</td>
+                <td class="rank-1">#1</td>
+                <td style="color: #888;">1325</td>
+              </tr>
+              <tr>
+                <td>Flux.2 [dev]</td>
+                <td>7.24</td>
+                <td>#3</td>
+                <td>1053</td>
+                <td class="rank-2">#2</td>
+                <td style="color: #888;">1250</td>
+              </tr>
+              <tr>
+                <td>Qwen-Image-Edit</td>
+                <td>7.56</td>
+                <td>#1</td>
+                <td>992</td>
+                <td>#4</td>
+                <td style="color: #888;">1231</td>
+              </tr>
+              <tr>
+                <td>Flux.1 Kontext [dev]</td>
+                <td>6.00</td>
+                <td>#7</td>
+                <td>964</td>
+                <td>#5</td>
+                <td style="color: #888;">1166</td>
+              </tr>
+              <tr>
+                <td>GPT Image 1 [High]</td>
+                <td>7.53</td>
+                <td>#2</td>
+                <td>1034</td>
+                <td class="rank-3">#3</td>
+                <td style="color: #888;">1155</td>
+              </tr>
+              <tr>
+                <td>Bagel</td>
+                <td>6.52</td>
+                <td>#6</td>
+                <td>890</td>
+                <td>#7</td>
+                <td style="color: #888;">1042</td>
+              </tr>
+              <tr>
+                <td>Step1X-Edit</td>
+                <td>6.70</td>
+                <td>#5</td>
+                <td>938</td>
+                <td>#6</td>
+                <td style="color: #888;">1014</td>
+              </tr>
+              <tr style="background-color: #f5f5f5; font-weight: bold;">
+                <td>Correlation w/ LMArena</td>
+                <td colspan="2">0.36</td>
+                <td colspan="2" style="color: #2ecc71;"><strong>0.86</strong></td>
+                <td>--</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: #666; text-align: center;">
+          Our pairwise Elo approach achieves a Spearman correlation of <strong>0.86</strong> with human preference, drastically outperforming the 0.36 correlation of pointwise baselines.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+function toggleQuantitativeResults() {
+  var content = document.getElementById('quantitative-results-content');
+  var icon = document.getElementById('quantitative-toggle-icon');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.innerHTML = '<i class="fas fa-chevron-up"></i>';
+  } else {
+    content.style.display = 'none';
+    icon.innerHTML = '<i class="fas fa-chevron-down"></i>';
+  }
+}
+</script>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>TBD</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link" href="#">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link" href="https://github.com/ruihanglix/genarena" class="external-link">
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+          <p>
+            Website template borrowed from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
