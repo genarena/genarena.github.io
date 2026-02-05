@@ -147,6 +147,20 @@
       transform: translateY(-1px);
       color: white;
     }
+
+    /* Mobile responsive styles */
+    @media screen and (max-width: 768px) {
+      /* Reduce title font size on mobile */
+      .title.is-1.publication-title {
+        font-size: 1.75rem !important;
+        line-height: 1.3;
+      }
+
+      /* Change arrow direction to down when stacked vertically */
+      .arrow-right {
+        transform: rotate(90deg);
+      }
+    }
   </style>
 </head>
 <body>
